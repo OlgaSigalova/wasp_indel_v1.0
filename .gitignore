@@ -59,3 +59,6 @@ mapping/test_data
 # Sphinx documentation
 docs/_build/
 
+# jupyter checkpoints
+.ipynb_checkpoints
+mapping/.ipynb_checkpoints/

@@ -121,7 +121,7 @@ class VarTree(object):
                 # Set probabilities to None if genotype unknown or...
                 if None in sample_genotype:
                     sample_probs = (None,)
-                # Calculate probabilities
+                # Calculate probabilities (if GL/PL provided)
                 else:
                     if 'GL' in sample_data:
                         sample_gl = sample_data['GL']
@@ -130,11 +130,16 @@ class VarTree(object):
                         sample_pl = sample_data['PL']
                         raw_probs = [10 ** (-p / 10) for p in sample_pl]
                     else:
-                        raise KeyError('absent genotype probability')
-                    # Normalise probability
-                    sample_probs = tuple(
-                        [p / sum(raw_probs) for p in raw_probs]
-                    )
+                        raw_probs = None
+                        
+                    # Normalise probability (if provided)
+                    if raw_probs:
+                        sample_probs = tuple(
+                            [p / sum(raw_probs) for p in raw_probs]
+                        )
+                    else:
+                        sample_probs = (None,)
+                        
                 # Store genotype and probs
                 genotypes[sample] = sample_genotype
                 probs[sample] = sample_probs
@@ -234,17 +239,21 @@ class VarTree(object):
         # Check chromosome
         if not self.current_chromosome == read.reference_name:
             raise ValueError('mismatched chromosomes')
-        # Get all variants
-        overlapping_variants = self.get_variants(
-            *zip(*read.get_blocks())
-        )
-        # Filter partially overlapping start and end
-        if not partial:
-            overlapping_variants = [
-                ov for ov in overlapping_variants if
-                ov.start >= read.reference_start and
-                ov.end <= read.reference_end
-            ]
+        # Get all variants (remove unmapped reads - if not filtered out before)
+        if read.cigarstring:  
+            overlapping_variants = self.get_variants(
+                *zip(*read.get_blocks())
+            )
+            # Filter partially overlapping start and end
+            if not partial:
+                overlapping_variants = [
+                    ov for ov in overlapping_variants if
+                    ov.start >= read.reference_start and
+                    ov.end <= read.reference_end
+                ]
+        else:
+            overlapping_variants = None
+            
         # Add read data to variants
         read_variants = []
         if overlapping_variants:
