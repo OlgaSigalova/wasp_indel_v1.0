@@ -92,13 +92,18 @@ class GenerateCounts(object):
                         self.counter['heterozygous'] += 1
                     else:
                         self.counter['homozygous'] += 1
-                    # Process haplotype and allele probabilites
+                        
+                    # Process haplotype 
                     haplotype = '|'.join(
                         map(str, variant.genotypes[self.sample])
                     )
-                    ref_prob, het_prob, alt_prob = [
-                        '{:.2f}'.format(p) for p in variant.probs[self.sample]
-                    ]
+                     # Process allele probabilites if provided 
+                    if None in variant.probs[self.sample]:
+                        ref_prob, het_prob, alt_prob = 'NA', 'NA', 'NA'
+                    else:
+                        ref_prob, het_prob, alt_prob = [
+                            '{:.2f}'.format(p) for p in variant.probs[self.sample]
+                        ]
                 # Add variant to dictionary
                 assert(variant.id not in variant_metrics)
                 variant_metrics[variant.id] = {
