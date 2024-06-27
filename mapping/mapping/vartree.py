@@ -69,9 +69,10 @@ class VarTree(object):
             self.chromosomes = list(vcf.header.contigs)
             for sample in self.samples:
                 assert(sample in list(vcf.header.samples))
-        # Create allele regx
-        self.ref_set = set(['A', 'C', 'G', 'T'])
-        self.alt_set = set(['A', 'C', 'G', 'T', '*'])
+        # Create allele regx (added lowercase letter here)
+        self.ref_set = set(['A', 'C', 'G', 'T', "a", "c", "g", "t"])
+        # why "*" is added (only) in alt_set ?
+        self.alt_set = set(['A', 'C', 'G', 'T', "a", "c", "g", "t", '*'])
         # Create empty slots for variant data
         self.current_chromosome = None
         self.variant_tree = None
@@ -84,7 +85,7 @@ class VarTree(object):
         self.variants = []
         intervals = []
         variant_ids = set()
-        # Create empty iterator for missing chromosomes or...
+        # Create empty iterator fqor missing chromosomes or...
         if chromosome not in self.chromosomes:
             warning = "WARNING: {} not in VCF header\n".format(chromosome)
             sys.stderr.write(warning)
