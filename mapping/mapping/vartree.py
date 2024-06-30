@@ -10,7 +10,7 @@ class Variant(
     collections.namedtuple(
         'Variant', [
             'chrom', 'start', 'end', 'alleles', 'id', 'genotypes', 'probs',
-            'read_start', 'read_end', 'read_allele'
+            'read_start', 'read_end', 'read_allele', 'phased', 'phasing_block'
         ]
     )
 ):
@@ -55,6 +55,8 @@ class Variant(
         if self.is_biallelic() and self.is_heterozygous(sample):
             return(True)
         return(False)
+
+
 
 
 class VarTree(object):
@@ -112,12 +114,28 @@ class VarTree(object):
             # Get genotype probabilities for samples
             genotypes = {}
             probs = {}
+            phasing = {}
+            phasing_blocks = {}
+            
             # Populate genotype probabilities for named samples
             for sample in self.samples:
                 # Get sample data, check phase and get genotype
                 sample_data = entry.samples[sample]
-                if self.check_phase and not sample_data.phased:
-                    raise ValueError('unphased variant')
+
+                # check phasing blocks
+                if self.check_phase:
+                    phased = sample_data.phased
+                    phasing[sample] = phased
+                    # if phased - get phasing block ID (PS field)
+                    if phased:
+                        sample_info = dict(zip(sample_data.keys(), sample_data.values()))
+                        phasing_blocks[sample] = sample_info["PS"]
+                    else:
+                        phasing_blocks[sample] = None
+                    
+                #if self.check_phase and not sample_data.phased:
+                    #raise ValueError('unphased variant')
+                    
                 sample_genotype = sample_data['GT']
                 # Set probabilities to None if genotype unknown or...
                 if None in sample_genotype:
@@ -158,8 +176,8 @@ class VarTree(object):
             variant = Variant(
                 chrom=chromosome, start=entry.start, end=entry.stop,
                 alleles=alleles, id=variant_id, genotypes=genotypes,
-                probs=probs, read_start=None, read_end=None,
-                read_allele=None
+                probs=probs, phased=phasing, phasing_block=phasing_blocks, 
+                read_start=None, read_end=None, read_allele=None
             )
             self.variants.append(variant)
             # Create intervaltree interval and add to list
