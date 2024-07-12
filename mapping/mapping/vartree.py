@@ -9,7 +9,7 @@ import sys
 class Variant(
     collections.namedtuple(
         'Variant', [
-            'chrom', 'start', 'end', 'alleles', 'id', 'genotypes', 'probs',
+            'chrom', 'start', 'end', 'alleles', 'id', 'var_name', 'genotypes', 'probs',
             'read_start', 'read_end', 'read_allele', 'phased', 'phasing_block'
         ]
     )
@@ -166,8 +166,8 @@ class VarTree(object):
             # Get variant id - always overwrite rs_ID (and add it at the end if provided)
             variant_id = '{}_{}_{}'.format(chromosome, entry.start + 1, '_'.join(alleles))
 
-            if entry.id is not None:
-                variant_id = variant_id + "_" + entry.id
+            # if entry.id is not None:
+            #     variant_id = variant_id + "_" + entry.id
             
             # Check id is unique
             assert(variant_id not in variant_ids)
@@ -176,8 +176,9 @@ class VarTree(object):
             # Create variant and add to list
             variant = Variant(
                 chrom=chromosome, start=entry.start, end=entry.stop,
-                alleles=alleles, id=variant_id, genotypes=genotypes,
-                probs=probs, phased=phasing, phasing_block=phasing_blocks, 
+                alleles=alleles, id=variant_id, var_name = entry.id, 
+                genotypes=genotypes, probs=probs, 
+                phased=phasing, phasing_block=phasing_blocks, 
                 read_start=None, read_end=None, read_allele=None
             )
             self.variants.append(variant)
