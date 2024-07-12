@@ -162,16 +162,17 @@ class VarTree(object):
                 # Store genotype and probs
                 genotypes[sample] = sample_genotype
                 probs[sample] = sample_probs
-            # Get variant id
-            if entry.id is None:
-                variant_id = '{}_{}_{}'.format(
-                    chromosome, entry.start + 1, '_'.join(alleles)
-                )
-            else:
-                variant_id = entry.id
+           
+            # Get variant id - always overwrite rs_ID (and add it at the end if provided)
+            variant_id = '{}_{}_{}'.format(chromosome, entry.start + 1, '_'.join(alleles))
+
+            if entry.id is not None:
+                variant_id = variant_id + "_" + entry.id
+            
             # Check id is unique
             assert(variant_id not in variant_ids)
             variant_ids.add(variant_id)
+
             # Create variant and add to list
             variant = Variant(
                 chrom=chromosome, start=entry.start, end=entry.stop,
