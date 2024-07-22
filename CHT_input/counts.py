@@ -61,11 +61,21 @@ class IndividualVariant(VariantTuple):
         end = start + len(ref)
         hash_value = hash((chrom, position, ref, alt))
         # Extract genotype information
-        if 'NA' in line_data[5:9]:
-            assert(line_data[5:9] == ['NA', 'NA', 'NA', 'NA'])
+        # check if genotype/haplotype
+        if line_data[5] == 'NA':
             haplotype = None
             het_prob = None
             genotype = None
+        # check if heterozygous probabilities are missing
+        elif 'NA' in line_data[6:9]:
+            assert(line_data[6:9] == ['NA', 'NA', 'NA'])
+            haplotype = line_data[5]
+            het_prob = None
+            genotype = None
+            # split haplotype string by "\" or "|", sum the alleles
+            genotype = haplotype.replace('|', '\\')
+            genotype = sum(map(int, genotype.split('\\')))
+            #assert(line_data[5:9] == ['NA', 'NA', 'NA', 'NA'])
         else:
             haplotype = line_data[5]
             het_prob, alt_prob = map(float, line_data[7:9])
