@@ -71,8 +71,7 @@ class IndividualVariant(VariantTuple):
             assert(line_data[6:9] == ['NA', 'NA', 'NA'])
             haplotype = line_data[5]
             het_prob = None
-            genotype = None
-            # split haplotype string by "\" or "|", sum the alleles
+            # split haplotype string by "\" or "|" (doesn't need to be phased), sum the alleles
             genotype = haplotype.replace('|', '\\')
             genotype = sum(map(int, genotype.split('\\')))
         else:
@@ -140,7 +139,7 @@ class CountTree(object):
         self.variants = None
         self.regions = None
         self.tree = None
-        # Tuples containing possible haplotypes
+        # Tuples containing possible haplotypes (only phased variants)
         self.haplotypes = set(['0|0', '0|1', '1|0', '1|1'])
         self.heterozygotes = set(['0|1', '1|0'])
 
@@ -321,19 +320,20 @@ class CountTree(object):
             A list of unique IndividualVariant object containing variant data
         '''
         # Check arguments
-        assert(target_haplotype in self.haplotypes)
+        #assert(target_haplotype in self.haplotypes)
         # Get region variants
         region_variants = self.get_variants(starts, ends)
-        # Process heterozygotic test variants...
-        if target_haplotype in self.heterozygotes:
-            # Set zero counts
+        region_hetprobs = []
+        # Process heterozygotic and phased test variants
+        if (target_haplotype in self.heterozygotes):
+            # Set emty arrays to store variants data
             ref_hap_counts = []
             alt_hap_counts = []
-            other_hap_counts = []
+            other_hap_counts = []           
             # Loop through region variants and check haplotype
             for variant in region_variants:
-                assert(variant.haplotype in self.haplotypes)
-                # Extract counts for heterozygotic variants...
+                #assert(variant.haplotype in self.haplotypes)
+                # Extract counts for heterozygotic and phased variants in the target region
                 if variant.haplotype in self.heterozygotes:
                     if variant.haplotype == target_haplotype:
                         ref_hap_counts.append(variant.ref_as_count)
@@ -349,6 +349,11 @@ class CountTree(object):
                     ref_hap_counts.append(0)
                     alt_hap_counts.append(0)
                     other_hap_counts.append(0)
+                # Extract heterozygous probabilities or set to 0.99
+                if variant.het_prob is not None:
+                    region_hetprobs.append(variant.het_prob)
+                else:
+                    region_hetprobs.append(0.99)
         # or set counts to zero for homozygotes
         else:
             ref_hap_counts = [0] * len(region_variants)
@@ -356,8 +361,9 @@ class CountTree(object):
             other_hap_counts = [0] * len(region_variants)
         # Create string and return
         region_positions = [v.start + 1 for v in region_variants]
-        region_hetprobs = [v.het_prob for v in region_variants]
+        #region_hetprobs = [v.het_prob for v in region_variants]
         region_linkage = ['1.00' for v in region_variants]
+
         # Merge strings
         region_list = [
             ';'.join([str(s + 1) for s in starts]),
