@@ -140,7 +140,8 @@ class CountTree(object):
         self.regions = None
         self.tree = None
         # Tuples containing possible haplotypes (only phased variants)
-        self.haplotypes = set(['0|0', '0|1', '1|0', '1|1'])
+        #self.haplotypes = set(['0|0', '0|1', '1|0', '1|1'])
+        # Tuples containing possible heterozygous haplotypes (only phased variants)
         self.heterozygotes = set(['0|1', '1|0'])
 
     def read_counts(self, chromosome):
@@ -326,10 +327,11 @@ class CountTree(object):
         region_hetprobs = []
         # Process heterozygotic and phased test variants
         if (target_haplotype in self.heterozygotes):
-            # Set emty arrays to store variants data
+            # Set emty arrays to store variants data and get phasing data
             ref_hap_counts = []
             alt_hap_counts = []
-            other_hap_counts = []           
+            other_hap_counts = []
+
             # Loop through region variants and check haplotype
             for variant in region_variants:
                 #assert(variant.haplotype in self.haplotypes)
@@ -362,7 +364,7 @@ class CountTree(object):
         # Create string and return
         region_positions = [v.start + 1 for v in region_variants]
         #region_hetprobs = [v.het_prob for v in region_variants]
-        region_linkage = ['1.00' for v in region_variants]
+        #region_linkage = ['1.00' for v in region_variants]
 
         # Merge strings
         region_list = [
