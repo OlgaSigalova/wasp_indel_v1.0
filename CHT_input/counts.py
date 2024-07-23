@@ -364,7 +364,8 @@ class CountTree(object):
         # Create string and return
         region_positions = [v.start + 1 for v in region_variants]
         #region_hetprobs = [v.het_prob for v in region_variants]
-        #region_linkage = ['1.00' for v in region_variants]
+        # to replace with linkage blocks
+        region_linkage = ['1.00' for v in region_variants]
 
         # Merge strings
         region_list = [

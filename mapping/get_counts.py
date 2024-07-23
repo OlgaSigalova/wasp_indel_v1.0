@@ -18,7 +18,7 @@ class GenerateCounts(object):
         self.partial = partial
         # Create VarTree object and open bam file
         self.vartree = VarTree(
-            path=self.vcf_path, samples=[self.sample], check_phase=False
+            path=self.vcf_path, samples=[self.sample], check_phase=True
         )
         self.bam = pysam.AlignmentFile(self.bam_path)
         # Generate counter
@@ -41,7 +41,7 @@ class GenerateCounts(object):
         for variant in variant_metrics.values():
             # Create output line
             out_line = (
-                '{chromosome}\t{position}\t{id}\t{ref}\t{alts}\t{haplotype}\t'
+                '{chromosome}\t{position}\t{phasing_block}\t{id}\t{ref}\t{alts}\t{haplotype}\t'
                 '{ref_prob}\t{het_prob}\t{alt_prob}\t{ref_as_count}\t'
                 '{alt_as_count}\t{other_as_count}\t{ref_total_count}\t'
                 '{alt_total_count}\t{other_total_count}\n'
@@ -107,7 +107,8 @@ class GenerateCounts(object):
                 # Add variant to dictionary
                 assert(variant.id not in variant_metrics)
                 variant_metrics[variant.id] = {
-                    'chromosome': chromosome, 'position': variant.start + 1,
+                    'chromosome': chromosome, 'position': variant.start + 1, 
+                    'phasing_block': variant.phasing_block[self.sample],
                     'id': variant.id, 'ref': variant.alleles[0],
                     'alts': ','.join(variant.alleles[1:]),
                     'haplotype': haplotype, 'ref_as_count': 0,
@@ -196,7 +197,7 @@ class GenerateCounts(object):
             count_file.write('#sample={}\n'.format(self.sample))
             # Add commented header
             count_file.write(
-                '#chrom\tposition\tid\tref\talt\thaplotype\tref_prob\t'
+                '#chrom\tposition\tphasing_block\tid\tref\talt\thaplotype\tref_prob\t'
                 'het_prob\talt_prob\tref_as_count\talt_as_count\t'
                 'other_as_count\tref_total_count\talt_total_count\t'
                 'other_total_count\n'

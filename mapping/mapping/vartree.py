@@ -65,6 +65,7 @@ class VarTree(object):
         # Store initial arguments
         self.path = path
         self.samples = samples if samples else []
+        # this argument is deactivated, potentially to remove later
         self.check_phase = check_phase
         # Get vcf chromosomes and check samples
         with pysam.VariantFile(self.path) as vcf:
@@ -122,16 +123,16 @@ class VarTree(object):
                 # Get sample data, check phase and get genotype
                 sample_data = entry.samples[sample]
 
-                # check phasing blocks
-                if self.check_phase:
-                    phased = sample_data.phased
-                    phasing[sample] = phased
-                    # if phased - get phasing block ID (PS field)
-                    if phased:
-                        sample_info = dict(zip(sample_data.keys(), sample_data.values()))
-                        phasing_blocks[sample] = sample_info["PS"]
-                    else:
-                        phasing_blocks[sample] = None
+                # check phasing blocks (default) - fill with None if not phased
+                #if self.check_phase: 
+                phased = sample_data.phased
+                phasing[sample] = phased
+                # if phased - get phasing block ID (PS field)
+                if phased:
+                    sample_info = dict(zip(sample_data.keys(), sample_data.values()))
+                    phasing_blocks[sample] = sample_info["PS"]
+                else:
+                    phasing_blocks[sample] = None
                     
                 #if self.check_phase and not sample_data.phased:
                     #raise ValueError('unphased variant')
