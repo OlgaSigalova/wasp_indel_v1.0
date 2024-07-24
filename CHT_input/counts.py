@@ -41,7 +41,7 @@ VariantTuple = collections.namedtuple(
     '_Variant', [
         'chrom', 'start', 'end', 'id', 'ref', 'alt', 'haplotype',
         'genotype', 'het_prob', 'ref_as_count', 'alt_as_count',
-        'other_as_count', 'hash'
+        'other_as_count', 'hash', 'phasing_block'
     ]
 )
 
@@ -52,38 +52,44 @@ class IndividualVariant(VariantTuple):
     def from_line(cls, line, adjhetprob=None):
         # Split line data and extract values
         line_data = line.strip().split('\t')
-        assert(len(line_data) == 15)
+        assert(len(line_data) == 16)
         # Extract variant description
         chrom = line_data[0]
         position = int(line_data[1])
-        id, ref, alt = line_data[2:5]
+        phasing_block = line_data[2]
+        id, ref, alt = line_data[3:6]
         start = position - 1
         end = start + len(ref)
         hash_value = hash((chrom, position, ref, alt))
         # Extract genotype information
         # check if genotype/haplotype is provided
-        if line_data[5] == 'NA':
+        if line_data[6] == 'NA':
             haplotype = None
             het_prob = None
             genotype = None
         # check if heterozygous probabilities are missing
-        elif 'NA' in line_data[6:9]:
-            assert(line_data[6:9] == ['NA', 'NA', 'NA'])
-            haplotype = line_data[5]
-            het_prob = None
+        elif 'NA' in line_data[7:10]:
+            assert(line_data[7:10] == ['NA', 'NA', 'NA'])
+            haplotype = line_data[6]
+            #het_prob = None
             # split haplotype string by "\" or "|" (doesn't need to be phased), sum the alleles
             genotype = haplotype.replace('|', '\\')
             genotype = sum(map(int, genotype.split('\\')))
+            # if variant is heterozygous, assign het_prob to 1.0
+            if genotype == 1:
+                het_prob = 1.0
+            else:
+                het_prob = None
         else:
-            haplotype = line_data[5]
+            haplotype = line_data[6]
             het_prob, alt_prob = map(float, line_data[7:9])
             genotype = het_prob + (2 * alt_prob)
         # Get counts
         ref_as_count, alt_as_count, other_as_count = map(
-            int, line_data[9:12]
+            int, line_data[10:13]
         )
         ref_total_count, alt_total_count, other_total_count = map(
-            int, line_data[12:15]
+            int, line_data[13:16]
         )
         # Calculate adjusted heterozygous possibility
         if het_prob is not None and adjhetprob is not None:
@@ -97,12 +103,14 @@ class IndividualVariant(VariantTuple):
                 )
             else:
                 raise ValueError('adjhetprob value not recognised')
+            # if het_prob < 0.6:
+            #     print(id, haplotype, het_prob, ref_as_count, alt_as_count, phasing_block)
         # Create and return variant
         new_variant = cls(
             chrom=chrom, start=start, end=end, id=id, ref=ref, alt=alt,
             haplotype=haplotype, genotype=genotype, het_prob=het_prob,
             ref_as_count=ref_as_count, alt_as_count=alt_as_count,
-            other_as_count=other_as_count, hash=hash_value
+            other_as_count=other_as_count, hash=hash_value, phasing_block=phasing_block
         )
         return(new_variant)
 
@@ -141,7 +149,7 @@ class CountTree(object):
         self.tree = None
         # Tuples containing possible haplotypes (only phased variants)
         #self.haplotypes = set(['0|0', '0|1', '1|0', '1|1'])
-        # Tuples containing possible heterozygous haplotypes (only phased variants)
+        # Tuples containing possible heterozygous haplotypes (only phased variants considered)
         self.heterozygotes = set(['0|1', '1|0'])
 
     def read_counts(self, chromosome):
@@ -259,7 +267,8 @@ class CountTree(object):
             test_variant.ref,
             test_variant.alt,
             '{:.2f}'.format(test_variant.genotype),
-            test_variant.haplotype
+            test_variant.haplotype,
+            test_variant.phasing_block
         ]
         test_str = ' '.join(test_list)
         return(test_str)
@@ -302,14 +311,16 @@ class CountTree(object):
             self.test_variants[test_tuple] = test_str
         return(test_str)
 
-    def generate_region_string(self, target_haplotype, starts, ends):
+    def generate_region_string(self, test_haplotype, test_phasing_block, starts, ends):
         '''Will retreive variants overlapping the specified interval and format
         them into a string suitable for insertion into a CHT input file
 
         Parameters
         ----------
-        target_haplotype:
-            haplotype of the target variant (one of 0|0, 0|1, 1|0 or 1|1)
+        test_haplotype:
+            haplotype of the test variant (one of 0|0, 0|1, 1|0 or 1|1)
+        test_phasing_block:
+            phasing block of the test variant
         starts:
             an iterator of 0-based interval starts
         ends:
@@ -321,12 +332,12 @@ class CountTree(object):
             A list of unique IndividualVariant object containing variant data
         '''
         # Check arguments
-        #assert(target_haplotype in self.haplotypes)
+        #assert(test_haplotype in self.haplotypes)
         # Get region variants
         region_variants = self.get_variants(starts, ends)
         region_hetprobs = []
-        # Process heterozygotic and phased test variants
-        if (target_haplotype in self.heterozygotes):
+        # Process heterozygotic and phased test variants. Phasing block must be provided for phased variants
+        if (test_haplotype in self.heterozygotes and test_phasing_block != "None"):
             # Set emty arrays to store variants data and get phasing data
             ref_hap_counts = []
             alt_hap_counts = []
@@ -335,9 +346,10 @@ class CountTree(object):
             # Loop through region variants and check haplotype
             for variant in region_variants:
                 #assert(variant.haplotype in self.haplotypes)
-                # Extract counts for heterozygotic and phased variants in the target region
-                if variant.haplotype in self.heterozygotes:
-                    if variant.haplotype == target_haplotype:
+                # Extract counts for heterozygotic and phased variants in the target region 
+                # Check that phasing block matches test variant 
+                if (variant.haplotype in self.heterozygotes and variant.phasing_block == test_phasing_block):
+                    if variant.haplotype == test_haplotype:
                         ref_hap_counts.append(variant.ref_as_count)
                         alt_hap_counts.append(variant.alt_as_count)
                         other_hap_counts.append(variant.other_as_count)
@@ -351,12 +363,12 @@ class CountTree(object):
                     ref_hap_counts.append(0)
                     alt_hap_counts.append(0)
                     other_hap_counts.append(0)
-                # Extract heterozygous probabilities or set to 0.99
+                # Extract heterozygous probabilities or set to 1.0 if missing
                 if variant.het_prob is not None:
                     region_hetprobs.append(variant.het_prob)
                 else:
-                    region_hetprobs.append(0.99)
-        # or set counts to zero for homozygotes
+                    region_hetprobs.append(1.0)
+        # or set counts to zero for homozygotes or unphased heterozygotes
         else:
             ref_hap_counts = [0] * len(region_variants)
             alt_hap_counts = [0] * len(region_variants)
@@ -364,8 +376,8 @@ class CountTree(object):
         # Create string and return
         region_positions = [v.start + 1 for v in region_variants]
         #region_hetprobs = [v.het_prob for v in region_variants]
-        # to replace with linkage blocks
-        region_linkage = ['1.00' for v in region_variants]
+        # replaced with linkage blocks - to remove
+        #region_linkage = ['1.00' for v in region_variants]
 
         # Merge strings
         region_list = [
@@ -373,7 +385,7 @@ class CountTree(object):
             ';'.join([str(e) for e in ends]),
             ';'.join([str(p) for p in region_positions]),
             ';'.join(['{:.2f}'.format(h) for h in region_hetprobs]),
-            ';'.join([k for k in region_linkage]),
+            #';'.join([k for k in region_linkage]),
             ';'.join([str(r) for r in ref_hap_counts]),
             ';'.join([str(a) for a in alt_hap_counts]),
             ';'.join([str(o) for o in other_hap_counts])
@@ -381,15 +393,17 @@ class CountTree(object):
         region_str = ' '.join(region_list)
         return(region_str)
 
-    def get_region_string(self, target_haplotype, starts, ends):
+    def get_region_string(self, test_haplotype, test_phasing_block, starts, ends):
         '''Will retreive region string if test haplotype and region have been
         observed previously or will generate and store region string if test
         haplotype and region are novel.
 
         Parameters
         ----------
-        target_haplotype:
-            haplotype of the target varaint (one of 0|0, 0|1, 1|0 or 1|1)
+        test_haplotype:
+            haplotype of the test varaint (one of 0|0, 0|1, 1|0 or 1|1)
+        test_phasing_block:
+            phasing block of the test variant
         starts:
             an iterator of 0-based interval starts
         ends:
@@ -401,14 +415,14 @@ class CountTree(object):
             A list of unique IndividualVariant object containing variant data
         '''
         # Generate region tuple
-        region_tuple = (target_haplotype, tuple(starts), tuple(ends))
+        region_tuple = (test_haplotype, tuple(starts), tuple(ends))
         # Extract region string if tuple has been observed previously...
         try:
             region_str = self.region_variants[region_tuple]
         # or generate and store region string if tuple is novel
         except KeyError:
             region_str = self.generate_region_string(
-                target_haplotype=target_haplotype, starts=starts, ends=ends
+                test_haplotype=test_haplotype, test_phasing_block = test_phasing_block, starts=starts, ends=ends
             )
             self.region_variants[region_tuple] = region_str
         # Return str

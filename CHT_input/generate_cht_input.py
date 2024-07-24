@@ -15,15 +15,15 @@ class InputReader(object):
             self.infile = gzip.open(self.path, 'rt')
         else:
             self.infile = open(self.path, 'rt')
-        # Create named tuple to store targets
-        self.target = collections.namedtuple(
-            'target', [
+        # Create named tuple to store test variants
+        self.test = collections.namedtuple(
+            'test', [
                 'chrom', 'test_start', 'test_end', 'ref', 'alt',
                 'region_starts', 'region_ends'
             ]
         )
 
-    def get_targets(
+    def get_tests(
         self
     ):
         # Loop through lines in infile and get data
@@ -37,11 +37,11 @@ class InputReader(object):
             region_starts = [int(rs) - 1 for rs in line_list[4].split(';')]
             region_ends = [int(re) for re in line_list[5].split(';')]
             # Create tuple and return
-            target = self.target(
+            test = self.test(
                 chrom=chrom, test_start=test_start, test_end=test_end, ref=ref,
                 alt=alt, region_starts=region_starts, region_ends=region_ends
             )
-            yield(target)
+            yield(test)
 
     def close(
         self
@@ -66,8 +66,7 @@ class OutputWriter(object):
             "CHROM TEST.SNP.POS TEST.SNP.ID TEST.SNP.REF.ALLELE "
             "TEST.SNP.ALT.ALLELE TEST.SNP.GENOTYPE TEST.SNP.HAPLOTYPE "
             "REGION.START REGION.END REGION.SNP.POS REGION.SNP.HET.PROB "
-            "REGION.SNP.LINKAGE.PROB REGION.SNP.REF.HAP.COUNT "
-            "REGION.SNP.ALT.HAP.COUNT REGION.SNP.OTHER.HAP.COUNT "
+            "REGION.SNP.REF.HAP.COUNT REGION.SNP.ALT.HAP.COUNT REGION.SNP.OTHER.HAP.COUNT "
             "REGION.READ.COUNT GENOMEWIDE.READ.COUNT\n"
         )
         self.outfile.write(self.header)
@@ -78,10 +77,10 @@ class OutputWriter(object):
         self.outfile.close()
 
     def write(
-        self, target_str, region_str, read_str
+        self, test_str, region_str, read_str
     ):
         # Create blank output line
-        line_list = [target_str, region_str, read_str]
+        line_list = [test_str, region_str, read_str]
         line_str = ' '.join(line_list) + '\n'
         self.outfile.write(line_str)
 
@@ -117,31 +116,32 @@ if __name__ == "__main__":
     regions = InputReader(args.regions)
     outfile = OutputWriter(args.outfile)
     current_chrom = None
-    # Loop through targets in region file
-    for target in regions.get_targets():
+    # Loop through tests in region file
+    for test in regions.get_tests():
         # Read in data for new chromosome
-        if current_chrom != target.chrom:
-            variants.read_counts(target.chrom)
-            current_chrom = target.chrom
-        # Get target variant and its haplotype
-        target_str = variants.get_test_string(
-            start=target.test_start, end=target.test_end, ref=target.ref,
-            alt=target.alt
+        if current_chrom != test.chrom:
+            variants.read_counts(test.chrom)
+            current_chrom = test.chrom
+        # Get test variant and its haplotype
+        test_str = variants.get_test_string(
+            start=test.test_start, end=test.test_end, ref=test.ref,
+            alt=test.alt
         )
-        target_haplotype = target_str.split(' ')[-1]
+        test_haplotype = test_str.split(' ')[-2]
+        test_phasing_block = test_str.split(' ')[-1]
         # Get region variants
         region_str = variants.get_region_string(
-            target_haplotype=target_haplotype, starts=target.region_starts,
-            ends=target.region_ends
+            test_haplotype=test_haplotype, test_phasing_block = test_phasing_block, 
+            starts=test.region_starts, ends=test.region_ends
         )
         # Get counts
         read_str = bam.get_read_string(
-            chrom=target.chrom, starts=target.region_starts,
-            ends=target.region_ends
+            chrom=test.chrom, starts=test.region_starts,
+            ends=test.region_ends
         )
         # Write output file
         outfile.write(
-            target_str=target_str, region_str=region_str, read_str=read_str
+            test_str=test_str, region_str=region_str, read_str=read_str
         )
     # Close files
     bam.close()
