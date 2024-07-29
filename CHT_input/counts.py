@@ -147,9 +147,9 @@ class CountTree(object):
         self.variants = None
         self.regions = None
         self.tree = None
-        # Tuples containing possible haplotypes (only phased variants)
+        # Tuples containing possible haplotypes 
         #self.haplotypes = set(['0|0', '0|1', '1|0', '1|1'])
-        # Tuples containing possible heterozygous haplotypes (only phased variants considered)
+        # Tuples containing possible heterozygous haplotypes 
         self.heterozygotes = set(['0|1', '1|0'])
 
     def read_counts(self, chromosome):
