@@ -4,19 +4,26 @@ import itertools
 
 class FlipVar(object):
 
-    def __init__(self, reads, variants, samples=None, offset=33):
+    def __init__(self, reads, variants, samples=None, offset=33, is_single_cell=True):
         # Check arguments
         assert(len(reads) == len(variants))
+        self.is_single_cell=is_single_cell
         # Check read pairing
         if len(reads) == 1:
             assert(not reads[0].is_paired)
             self.paired = False
+            if self.is_single_cell:
+                assert(reads[0].get_tag("CB"))
         else:
             assert(len(reads) == 2)
             assert(reads[0].is_read1 and reads[1].is_read2)
             assert(reads[0].query_name == reads[1].query_name)
             assert(reads[0].reference_id == reads[1].reference_id)
             self.paired = True
+            if self.is_single_cell:
+                assert(reads[0].get_tag("CB"))
+                assert(reads[1].get_tag("CB"))
+                assert(reads[0].get_tag("CB") == reads[1].get_tag("CB"))
         # Extract read data
         self.name = reads[0].query_name
         self.read_data = [
@@ -24,6 +31,7 @@ class FlipVar(object):
             for read in reads
         ]
         self.position = [reads[0].reference_id]
+        self.cb = reads[0].get_tag("CB") if self.is_single_cell else None
         for read in reads:
             self.position.extend([read.reference_start, read.reference_end])
         # Extract variant data
@@ -234,7 +242,7 @@ class FlipVar(object):
                     )
                 )
                 self.flipped_reads.append(flipped)
-        # Generate flipped sequence for signle end reads
+        # Generate flipped sequence for single end reads
         else:
             read1_data = self.read_data[0]
             read1_variants = self.variants[0]
@@ -260,8 +268,8 @@ class FlipVar(object):
         # Process new reads sequentially
         for i, reads in enumerate(self.flipped_reads):
             # Generate identifier
-            identifier = '@{}.{}.{}.{:06d}'.format(
-                self.name, position, n_seq, i
+            identifier = '@{}.{}.{}.{:06d}{}'.format(
+                self.name, position, n_seq, i, f"\tCB:Z:{cb}" if self.cb else ""
             )
             # Loop through paired reads
             for sequence, quality in reads:
