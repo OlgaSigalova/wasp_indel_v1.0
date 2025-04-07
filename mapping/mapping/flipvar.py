@@ -219,7 +219,8 @@ class FlipVar(object):
         # Flip reads to account for strand
         if reverse:
             quality = ''.join([chr(q + self.offset) for q in quality[::-1]])
-            sequence = ''.join([self.complement[s] for s in sequence[::-1]])
+            #print(sequence[::-1])
+            sequence = ''.join([self.complement[s] for s in sequence[::-1].upper()])
         else:
             quality = ''.join([chr(q + self.offset) for q in quality])
         # Return modified read as a flipped read
@@ -269,8 +270,9 @@ class FlipVar(object):
         for i, reads in enumerate(self.flipped_reads):
             # Generate identifier
             identifier = '@{}.{}.{}.{:06d}{}'.format(
-                self.name, position, n_seq, i, f"\tCB:Z:{cb}" if self.cb else ""
+                self.name, position, n_seq, i, f"\tCB:Z:{self.cb}" if self.cb else ""
             )
+            #print(identifier)
             # Loop through paired reads
             for sequence, quality in reads:
                 fastq_entry = '{}\n{}\n+\n{}\n'.format(

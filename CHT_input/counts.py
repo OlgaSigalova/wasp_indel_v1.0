@@ -220,7 +220,7 @@ class CountTree(object):
         # Get index of all variant overlapping data
         indices = set()
         for start, end in itertools.zip_longest(starts, ends):
-            for interval in self.tree.envelop(start, end):
+            for interval in self.tree.overlap(start, end):
                 indices.add(interval.data)
         # Extract variant for each index
         variants = [self.variants[i] for i in sorted(list(indices))]
@@ -255,6 +255,11 @@ class CountTree(object):
         '''
         # Get variant
         test_variants = self.get_variants((start,), (end,))
+        
+        # If multipme variants are found, select the one with exact match in coordinates
+        if len(test_variants) > 1:
+            test_variants = [variant for variant in test_variants if variant.start == start and variant.end == end]
+        
         assert(len(test_variants) == 1)
         test_variant = test_variants[0]
         assert(test_variant.ref == ref)
@@ -373,10 +378,11 @@ class CountTree(object):
             ref_hap_counts = [0] * len(region_variants)
             alt_hap_counts = [0] * len(region_variants)
             other_hap_counts = [0] * len(region_variants)
+            region_hetprobs = [0] * len(region_variants)
         # Create string and return
         region_positions = [v.start + 1 for v in region_variants]
         #region_hetprobs = [v.het_prob for v in region_variants]
-        # replaced with linkage blocks - to remove
+        # replaced with haplotype blocks - to remove
         #region_linkage = ['1.00' for v in region_variants]
 
         # Merge strings

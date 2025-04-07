@@ -270,6 +270,7 @@ if __name__ == '__main__':
         filename_in=outfiles['initial'], filename_out=outfiles['compressed'],
         force=True
     )
+    # automatically removed now?
     os.remove(outfiles['initial'])
     # Index tabix file
     pysam.tabix_index(

@@ -1,5 +1,6 @@
 import collections
 import pysam
+import warnings
 
 
 class FirstBamGenerator():
@@ -109,7 +110,10 @@ class FirstBamGenerator():
             message = '{} contains {} unpaired reads'.format(
                 chromosome, len(read_pair_cache)
             )
-            raise ValueError(message)
+            #raise ValueError(message)
+            # warning instead of raising error - smth to debug later
+            warnings.warn(message)
+            print(f"Unpaired reads IDs: {list(read_pair_cache.keys())}")
 
     def close(self):
         self.bam.close()

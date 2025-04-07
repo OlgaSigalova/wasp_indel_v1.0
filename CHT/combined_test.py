@@ -198,8 +198,8 @@ def write_results(outfile, snpinfo, loglike1par, loglike2par,
 
     outfile.write("\t".join([snpinfo[0][0], snpinfo[0][1],
                              snpinfo[0][2], snpinfo[0][3],
-                             snpinfo[0][4], snpinfo[0][7],
-                             snpinfo[0][8],
+                             snpinfo[0][4], snpinfo[0][8],
+                             snpinfo[0][9],
                              "%.2f" % -loglike1par,
                              "%.2f" % -loglike2par,
                              "%.3f" % chisq,
@@ -219,7 +219,7 @@ def write_empty_result(outfile, snpinfo):
     outfile.write("\t".join([snpinfo[0][0], snpinfo[0][1],
                              snpinfo[0][2], snpinfo[0][3],
                              snpinfo[0][4],
-                             snpinfo[0][7], snpinfo[0][8],
+                             snpinfo[0][8], snpinfo[0][9],
                              "0", "0",
                              "0", "NA", "0", "0", "0",
                              "0", "0", "0"]) + '\n')
@@ -280,6 +280,18 @@ def main():
     
     while not finished:
         try:
+
+            # Skip the line if chromosome does not match
+            if options.chromosome and snpinfo[0][0] != options.chromosome:
+                for i in range(len(infiles)):
+                    line = infiles[i].readline().strip()
+                    if line:
+                        snpinfo[i] = line.split()
+                    else:
+                        # Out of lines from at least one file, assume we are finished
+                        finished = True
+                continue            
+
             test_snps = []
             # parse test SNP and associated info from input file row
             for i in range(len(infiles)):
@@ -287,7 +299,11 @@ def main():
 
             # rescale totals to put values into reasonable range for
             # alpha and beta parameter estimation
-            rescale_totals(test_snps)
+            if not options.is_as_only:
+                rescale_totals(test_snps)
+                all_counts = sum([test_snps[i].counts for i in range(len(test_snps))])
+            else:
+                all_counts = 0
             
 
             # how many allele-specific reads are there across all
@@ -296,8 +312,7 @@ def main():
             alt_as_counts = sum([np.sum(x.AS_target_alt) for x in test_snps])
             tot_as_counts = ref_as_counts + alt_as_counts
             
-            all_counts = sum([test_snps[i].counts for i in range(len(test_snps))])
-
+            
             if tot_as_counts < options.min_as_counts:
                 if options.verbose:
                     sys.stderr.write("-----\nskipping SNP %s because "
@@ -318,8 +333,8 @@ def main():
                 sys.stderr.write("-----\ntesting SNP %s\n" % test_snps[0].name)
 
             row_count+=1
-            old_genos = [test_snps[y].geno_hap1 + test_snps[y].geno_hap2
-                         for y in range(len(test_snps))]
+            #old_genos = [test_snps[y].geno_hap1 + test_snps[y].geno_hap2
+            #             for y in range(len(test_snps))]
 
             if options.shuffle:
                 # permute genotypes
@@ -349,7 +364,7 @@ def main():
                 #fit_cov(test_snps,cov_table)
 
                 # maximize likelihood with alpha = beta (no difference between genotypes)
-                res = minimize(ll_one, starts, args=(test_snps, True, #options.is_bnb_only,
+                res = minimize(ll_one, starts, args=(test_snps, options.is_bnb_only, #True,
                                                      options.is_as_only,
                                                      bnb_sigmas,
                                                      as_sigmas,
@@ -371,7 +386,7 @@ def main():
             pc_coefs=[]
             for pc in range(num_pcs):
                 res = minimize(ll_pc, [np.float64(0)],
-                               args=(starting_par, test_snps, True, #options.is_bnb_only,
+                               args=(starting_par, test_snps, options.is_bnb_only, #True, 
                                      options.is_as_only, bnb_sigmas, as_sigmas,
                                      options.read_error_rate, pc_coefs, pc_matrix),
                                options={"maxiter" : 50000, "disp" : options.verbose},
@@ -495,6 +510,9 @@ def parse_options():
                         dest='is_bnb_only', default=False,
                         help="only perform the association (Beta Negative Binomial) part "
                         "of the test")
+    
+    parser.add_argument('--chromosome', "-c", help="Chromosome to run the test for (if not provided, run for the whole dataset)",
+                        type = str , default=None)
 
     parser.add_argument("--pc_file", action='store',
                         dest='pc_file',
@@ -679,14 +697,7 @@ def loglikelihood(alpha, beta, r, test_snps, is_bnb_only,
     ratio = (alpha / (alpha + beta))
 
     for i in range(len(test_snps)):
-        if(test_snps[i].is_homo_ref()):
-            m = 2*alpha*test_snps[i].totals * calc_pc_factor(pc_coefs, pc_matrix, i)
-        elif(test_snps[i].is_homo_alt()):
-            m = 2*beta*test_snps[i].totals * calc_pc_factor(pc_coefs, pc_matrix, i)
-        else:
-            m = (alpha+beta)*test_snps[i].totals * calc_pc_factor(pc_coefs, pc_matrix, i)
-        if m<0:
-            m = 0.000001
+
         if not is_bnb_only:
             for j in range(len(test_snps[i].AS_target_ref)):
                 if test_snps[i].hetps[j]>.9:
@@ -698,8 +709,17 @@ def loglikelihood(alpha, beta, r, test_snps, is_bnb_only,
                                                     test_snps[i].AS_target_alt[j],
                                                     hetp, error)
         if not is_as_only:
+            if(test_snps[i].is_homo_ref()):
+                m = 2*alpha*test_snps[i].totals * calc_pc_factor(pc_coefs, pc_matrix, i)
+            elif(test_snps[i].is_homo_alt()):
+                m = 2*beta*test_snps[i].totals * calc_pc_factor(pc_coefs, pc_matrix, i)
+            else:
+                m = (alpha+beta)*test_snps[i].totals * calc_pc_factor(pc_coefs, pc_matrix, i)
+            if m<0:
+                m = 0.000001
             l = BNB_loglike(test_snps[i].counts, m, r, bnb_sigmas[i])
             loglike += l
+
     return -loglike
 
 
@@ -727,12 +747,12 @@ def parse_test_snp(snpinfo, options):
     else:
         count = int(snpinfo[15])
 
-    if snpinfo[9].strip() == "NA" or geno_hap1 == geno_hap2:
+    if snpinfo[10].strip() == "NA" or geno_hap1 == geno_hap2:
         # SNP is homozygous, so there is no AS info
         return TestSNP(snp_id, geno_hap1, geno_hap2, [], [], [], tot, count)
     else:
         # positions of target SNPs
-        snp_locs = np.array([int(y.strip()) for y in snpinfo[9].split(';')])
+        snp_locs = np.array([int(y.strip()) for y in snpinfo[10].split(';')])
 
         # counts of reads that match reference overlapping linked 'target' SNPs
         snp_as_ref = np.array([int(y) for y in snpinfo[12].split(';')])
@@ -742,11 +762,11 @@ def parse_test_snp(snpinfo, options):
 
         # heterozygote probabilities
         snp_hetps = np.array([np.float64(y.strip())
-                          for y in snpinfo[10].split(';')])
+                          for y in snpinfo[11].split(';')])
 
         # linkage probabilities, not currently used
-        snp_linkageps = np.array([np.float64(y.strip())
-                                  for y in snpinfo[11].split(';')])
+        # snp_linkageps = np.array([np.float64(y.strip())
+        #                           for y in snpinfo[11].split(';')])
 
 
         # same SNP should not be provided multiple times, this
@@ -762,7 +782,7 @@ def parse_test_snp(snpinfo, options):
         snp_as_ref = snp_as_ref[uniq_idx]
         snp_as_alt = snp_as_alt[uniq_idx]
         snp_hetps = snp_hetps[uniq_idx]
-        snp_linkageps = snp_linkageps[uniq_idx]
+        # snp_linkageps = snp_linkageps[uniq_idx]
                              
         if options.shuffle:
             # permute allele-specific read counts by flipping them randomly at

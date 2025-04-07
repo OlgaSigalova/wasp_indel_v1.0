@@ -12,19 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Modification - OS:
+#  - Either remove chromosomes with different Null hypothesis (chrX, chrY and chrM) or fit coefficients only for specified chromosomes
+#  - header was removed twice in the original code (in the function for reading input files and in main())
+
+
 import sys
 import os
 import math
 import gzip
 import argparse
-
 from scipy.optimize import *
 from scipy.special import betaln
 import scipy.stats
-
 import numpy as np
-
 import util
+import datetime
+
+def print_with_time(message):
+    """Prints a message with the current timestamp."""
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{current_time}] {message}")
+
 
 def parse_options():
     parser = argparse.ArgumentParser(description="This script estimates the "
@@ -39,6 +48,19 @@ def parse_options():
     parser.add_argument("--read_error_rate", "-e", action='store', dest='read_error_rate',
                         help="sequence read error rate (default=0.005)",
                         type=float, default=0.005)
+
+    parser.add_argument('--remove_chromosomes', "-r", help="Remove some chromosomes? Can't be used together with --keep-chromosomes flag",
+                        action="store_true", dest="remove_chromosomes", default=False)
+
+    parser.add_argument('--keep_chromosomes', "-k", help="Keep only specified chromosomes? Can't be used together with --remove-chromosomes flag",
+                        action="store_true", dest="keep_chromosomes", default=False)
+
+    parser.add_argument('--chrom_list', nargs='*', dest='chrom_list',
+                        help="List of chromosomes to remove (with -r/--remove_chromosomes flag) or to keep (with -k/--keep_chromosomes flag). Space separated lise, e.g. chrX chrM",
+                        default=None)
+
+    parser.add_argument('--aggregate_per_region', "-a", help="Aggregate all counts per region (default=False). If used, heterozygous probabilities are assumed to be 1 for all heterozygous sites",
+                        action="store_true", dest="aggregate_per_region", default=False)
 
     parser.add_argument("infile_list",
                         help="Path to file containing list of CHT input "
@@ -93,6 +115,9 @@ def open_input_files(in_filename):
 def main():
     options = parse_options()
 
+    if options.remove_chromosomes and options.chrom_list==None:
+        sys.stderr.write("Warning: no chromosomes to remove specified, skipping\n")
+
     sys.stderr.write("reading input filenames from %s\n" % options.infile_list)
     infiles = open_input_files(options.infile_list)
     outfile = open(options.out_file, "wt")
@@ -108,22 +133,36 @@ def main():
         AS_alt = []
         hetps =[]
 
-        header = cur_file.readline()
+        # header was already removed in the function 'open_input_files'
+        #header = cur_file.readline()
 
         # combine allele-specific read counts into one large
         # array for this individual
         for line in cur_file:
             snpinfo = line.strip().split()
             
+            # skip homozygous positions
+            if snpinfo[5] != '1.00':
+                continue
+
+            ## remove some chromosomes, if --remove_chromosomes option is activated and chrom_list is specified
+            if options.remove_chromosomes and options.chrom_list!=None:
+                if snpinfo[0] in options.chrom_list:
+                    continue
+            ## keep only specified chromosomes, if --keep_chromosomes option is activated and chrom_list is specified
+            if options.keep_chromosomes and options.chrom_list!=None:
+                if not snpinfo[0] in options.chrom_list:
+                    continue
+
             if snpinfo[12] != "NA":
                 # read information aout target SNPs
-                snp_locs = np.array([int(y.strip()) for y in snpinfo[9].split(';')],
+                snp_locs = np.array([int(y.strip()) for y in snpinfo[10].split(';')],
                                     dtype=np.int32)
                 snp_as_ref = np.array([int(y) for y in snpinfo[12].split(';')],
                                       dtype=np.int32)
                 snp_as_alt = np.array([int(y) for y in snpinfo[13].split(';')],
                                       dtype=np.int32)
-                snp_hetps = np.array([float(y.strip()) for y in snpinfo[10].split(';')],
+                snp_hetps = np.array([float(y.strip()) for y in snpinfo[11].split(';')],
                                      dtype=np.float64)
 
                 # same SNP should not be provided multiple times, this
@@ -136,13 +175,21 @@ def main():
                                      "multiple times in same line\n")
                     dup_snp_warn = False
                 
-                AS_ref.extend(snp_as_ref[uniq_idx])
-                AS_alt.extend(snp_as_alt[uniq_idx])
-                hetps.extend(snp_hetps[uniq_idx])
+                if options.aggregate_per_region:
+                    AS_ref.extend([np.sum(snp_as_ref[uniq_idx])])
+                    AS_alt.extend([np.sum(snp_as_alt[uniq_idx])])
+                    hetps.extend([1]) # all counts come from heterozygous sites
+                else:
+                    AS_ref.extend(snp_as_ref[uniq_idx])
+                    AS_alt.extend(snp_as_alt[uniq_idx])
+                    hetps.extend(snp_hetps[uniq_idx])
 
         AS_ref = np.array(AS_ref)
         AS_alt = np.array(AS_alt)
         hetps = np.array(hetps)
+
+        ms = f"{i}: {len(AS_ref)} heterozygous variants"
+        print_with_time(ms)
 
         # find maximu likelihood estimate for overdispersion parameter
         res = minimize_scalar(likelihood, bounds=(0.01, 0.99),
@@ -205,4 +252,6 @@ def AS_betabinom_loglike(logps, sigma, AS1, AS2, hetp, error):
 
     return addlogs(math.log(hetp)+part1, math.log(1-hetp) + addlogs(e1, e2))
 
-main()
+
+if __name__ == "__main__":
+    main()

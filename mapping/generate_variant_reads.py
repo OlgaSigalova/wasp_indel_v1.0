@@ -111,7 +111,7 @@ class ProcessAlignments(object):
         # Create output paths
         self.outbam_path = self.out_prefix + '.no_variants.bam'
         self.fastq_path = self.out_prefix + '.allele_flipped.fq.gz'
-        self.log_path = self.out_prefix + '.first_alignment_log.txt'
+        self.log_path = self.out_prefix + '.allele_flipped_log.txt'
         # Initialise objects and open files
         self.bam_generator = FirstBamGenerator(
             self.inbam_path, min_mapq=self.min_mapq
@@ -221,11 +221,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Looks for variants (SNPs & indels) overlapping reads. "
         "Three output files are generated with the provided prefix and the "
-        "following suffixes. 1) '.invariant.bam' - BAM file containing reads "
-        "not overlapping variants. 2) '.remap.fq.gz' - a gzipped FASTQ file "
+        "following suffixes. 1) '.no_variants.bam' - BAM file containing reads "
+        "not overlapping variants. 2) '.allele_flipped.fq.gz' - a gzipped FASTQ file "
         "containing the original and variant flipped reads for realignment. "
         "If the input BAM file contains paired end reads then the pairs are "
-        "interlevead in the FASTQ file. 3) '.variant_log.txt' text file "
+        "interlevead in the FASTQ file. 3) '.allele_flipped_log.txt' text file "
         "containing read processing metrics."
     )
     parser.add_argument(

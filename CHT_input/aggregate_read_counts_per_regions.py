@@ -160,7 +160,7 @@ if __name__ == "__main__":
         outfile.write(
             test_str=test_str, region_str=region_str, read_str=read_str
         )
-
+    
     # Close files
     regions.close()
     outfile.close()
