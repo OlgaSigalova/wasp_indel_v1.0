@@ -27,11 +27,11 @@ Each directory contains its own README file:
 * [CHT](./CHT) - Code for running the Combined Haplotype Test
 
 
-This is a new repo to adjust WASP_indel software to ASAP project
+This is a new repo to adjust WASP_indel software to ASAP project.  
 Origual WASP-Indel repository: https://github.com/adam-rabinowitz/wasp_indel_v1.0
 
-Citations:
-Sigalova, O. M., Forneris, M., Stojanovska, F., Zhao, B., Viales, R. R., Rabinowitz, A., Hammal, F., Ballester, B., Zaugg, J. B., & Furlong, E. E. M. (2025). Integrating genetic variation with deep learning provides context for variants impacting transcription factor binding during embryogenesis. Genome Research, 35, 1–16. https://doi.org/10.1101/GR.279652.124
-Van De Geijn, B., Mcvicker, G., Gilad, Y., & Pritchard, J. K. (2015). WASP: Allele-specific software for robust molecular quantitative trait locus discovery. Nature Methods, 12(11), 1061–1063. https://doi.org/10.1038/nmeth.3582
+Citations:  
+* Sigalova, O. M., Forneris, M., Stojanovska, F., Zhao, B., Viales, R. R., Rabinowitz, A., Hammal, F., Ballester, B., Zaugg, J. B., & Furlong, E. E. M. (2025). Integrating genetic variation with deep learning provides context for variants impacting transcription factor binding during embryogenesis. Genome Research, 35, 1–16. https://doi.org/10.1101/GR.279652.124  
+* Van De Geijn, B., Mcvicker, G., Gilad, Y., & Pritchard, J. K. (2015). WASP: Allele-specific software for robust molecular quantitative trait locus discovery. Nature Methods, 12(11), 1061–1063. https://doi.org/10.1038/nmeth.3582
 
 
